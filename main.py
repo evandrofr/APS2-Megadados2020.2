@@ -2,8 +2,7 @@
 import uuid
 
 from typing import Optional, Dict
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 
@@ -41,7 +40,36 @@ app = FastAPI(
     openapi_tags=tags_metadata,
 )
 
-tasks = {}
+class DBSession:
+    tasks = {}
+
+    def __init__(self):
+        self.tasks = DBSession.tasks
+
+    def read_tasks(self):
+        return self.tasks
+    
+    def create_task(self, item):
+        uuid_ = uuid.uuid4()
+        self.tasks[uuid_] = item
+        return uuid_
+
+    def read_task(self, uuid_):
+        return self.tasks[uuid_]
+
+    def replace_task(self, uuid_, item):
+        self.tasks[uuid_] = item
+
+    def alter_task(self, uuid_, item):
+        update_data = item.dict(exclude_unset=True)
+        self.tasks[uuid_] = self.tasks[uuid_].copy(update=update_data)
+    
+    def remove_task(self, uuid_):
+        del self.tasks[uuid_]
+
+    
+def get_db():
+    return DBSession()
 
 
 @app.get(
@@ -51,12 +79,12 @@ tasks = {}
     description='Reads the whole task list.',
     response_model=Dict[uuid.UUID, Task],
 )
-async def read_tasks(completed: bool = None):
+async def read_tasks(completed: bool = None, db: DBSession = Depends(get_db)):
     if completed is None:
-        return tasks
+        return db.read_tasks()
     return {
         uuid_: item
-        for uuid_, item in tasks.items() if item.completed == completed
+        for uuid_, item in db.tasks.items() if item.completed == completed
     }
 
 
@@ -67,10 +95,8 @@ async def read_tasks(completed: bool = None):
     description='Creates a new task and returns its UUID.',
     response_model=uuid.UUID,
 )
-async def create_task(item: Task):
-    uuid_ = uuid.uuid4()
-    tasks[uuid_] = item
-    return uuid_
+async def create_task(item: Task, db: DBSession = Depends(get_db)):
+    return db.create_task(item)
 
 
 @app.get(
@@ -80,9 +106,9 @@ async def create_task(item: Task):
     description='Reads task from UUID.',
     response_model=Task,
 )
-async def read_task(uuid_: uuid.UUID):
+async def read_task(uuid_: uuid.UUID, db: DBSession = Depends(get_db)):
     try:
-        return tasks[uuid_]
+        return db.read_task(uuid_)
     except KeyError as exception:
         raise HTTPException(
             status_code=404,
@@ -96,9 +122,9 @@ async def read_task(uuid_: uuid.UUID):
     summary='Replaces a task',
     description='Replaces a task identified by its UUID.',
 )
-async def replace_task(uuid_: uuid.UUID, item: Task):
+async def replace_task(uuid_: uuid.UUID, item: Task, db: DBSession = Depends(get_db)):
     try:
-        tasks[uuid_] = item
+        db.replace_task(uuid_, item)
     except KeyError as exception:
         raise HTTPException(
             status_code=404,
@@ -112,10 +138,9 @@ async def replace_task(uuid_: uuid.UUID, item: Task):
     summary='Alters task',
     description='Alters a task identified by its UUID',
 )
-async def alter_task(uuid_: uuid.UUID, item: Task):
+async def alter_task(uuid_: uuid.UUID, item: Task, db: DBSession = Depends(get_db)):
     try:
-        update_data = item.dict(exclude_unset=True)
-        tasks[uuid_] = tasks[uuid_].copy(update=update_data)
+        db.alter_task(uuid_, item)
     except KeyError as exception:
         raise HTTPException(
             status_code=404,
@@ -129,9 +154,9 @@ async def alter_task(uuid_: uuid.UUID, item: Task):
     summary='Deletes task',
     description='Deletes a task identified by its UUID',
 )
-async def remove_task(uuid_: uuid.UUID):
+async def remove_task(uuid_: uuid.UUID, db: DBSession = Depends(get_db)):
     try:
-        del tasks[uuid_]
+        db.remove_task(uuid_)
     except KeyError as exception:
         raise HTTPException(
             status_code=404,

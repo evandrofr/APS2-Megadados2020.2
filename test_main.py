@@ -14,12 +14,12 @@ def test_read_tasks_return_empty_json():
     assert response.status_code == 200
     assert response.json() == {}
 
-# def test_create_task_and_delete_it():
-#     responsePost = client.post('/task', json={"description": "description", "completed": False})
-#     assert responsePost.status_code == 200
+def test_create_task_and_delete_it():
+    responsePost = client.post('/task', json={"description": "description", "completed": False})
+    assert responsePost.status_code == 200
 
-#     responseDelete = client.delete(f'/task/{responsePost.json()}')
-#     assert responseDelete.json() == None
+    responseDelete = client.delete(f'/task/{responsePost.json()}')
+    assert responseDelete.json() == None
 
 def test_create_task_get_and_delete_it():
     responsePost = client.post('/task', json={"description": "description", "completed": False})
