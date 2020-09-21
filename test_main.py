@@ -45,6 +45,16 @@ def test_delete_invalid_task():
     assert response.status_code == 404
     assert response.json() == {"detail": "Task not found"}
 
+def test_get_invalid_task_with_invalid_uuid():  
+    response = client.get(f'/task/capixaba')
+    assert response.status_code == 422
+    assert response.json() == {'detail': [{'loc': ['path', 'uuid_'], 'msg': 'value is not a valid uuid', 'type': 'type_error.uuid'}]}
+
+def test_delete_invalid_task_with_invalid_uuid():  
+    response = client.delete(f'/task/capixaba')
+    assert response.status_code == 422
+    assert response.json() == {'detail': [{'loc': ['path', 'uuid_'], 'msg': 'value is not a valid uuid', 'type': 'type_error.uuid'}]}
+
 
 def test_read_all_tasks():
     responsePost1 = client.post('/task', json={"description": "description1", "completed": False})
@@ -129,4 +139,71 @@ def test_put_valid_task():
     responseDelete = client.delete(f"/task/{responsePost.json()}")
     assert responseDelete.status_code == 200
     assert responseDelete.json() == None
+
+
+def test_post_tasks_and_get_completed_tasks():
+    responsePost1 = client.post(
+        "/task", json={ "description": "description1", "completed": False }
+    )
+    assert responsePost1.status_code == 200
+    responsePost2 = client.post(
+        "/task", json={ "description": "description2", "completed": True }
+    )
+    assert responsePost2.status_code == 200
+    responsePost3 = client.post(
+        "/task", json={ "description": "description3", "completed": False }
+    )
+    assert responsePost3.status_code == 200
+
+    responseGet = client.get("/task?completed=true")
+    assert responseGet.status_code == 200
+    assert responseGet.json() == {
+        responsePost2.json(): {
+            "description": "description2",
+            "completed": True,
+        },
+    }
+
+    responseDelete1 = client.delete(f"/task/{responsePost1.json()}")
+    assert responseDelete1.status_code == 200
+    assert responseDelete1.json() == None
+    responseDelete2 = client.delete(f"/task/{responsePost2.json()}")
+    assert responseDelete2.status_code == 200
+    assert responseDelete2.json() == None
+    reponseDelete3 = client.delete(f"/task/{responsePost3.json()}")
+    assert reponseDelete3.status_code == 200
+    assert reponseDelete3.json() == None
+
+def test_post_tasks_and_get_not_completed_tasks():
+    responsePost1 = client.post(
+        "/task", json={ "description": "description1", "completed": True }
+    )
+    assert responsePost1.status_code == 200
+    responsePost2 = client.post(
+        "/task", json={ "description": "description2", "completed": True }
+    )
+    assert responsePost2.status_code == 200
+    responsePost3 = client.post(
+        "/task", json={ "description": "description3", "completed": False }
+    )
+    assert responsePost3.status_code == 200
+
+    responseGet = client.get("/task?completed=false")
+    assert responseGet.status_code == 200
+    assert responseGet.json() == {
+        responsePost3.json(): {
+            "description": "description3",
+            "completed": False,
+        },
+    }
+
+    responseDelete1 = client.delete(f"/task/{responsePost1.json()}")
+    assert responseDelete1.status_code == 200
+    assert responseDelete1.json() == None
+    responseDelete2 = client.delete(f"/task/{responsePost2.json()}")
+    assert responseDelete2.status_code == 200
+    assert responseDelete2.json() == None
+    reponseDelete3 = client.delete(f"/task/{responsePost3.json()}")
+    assert reponseDelete3.status_code == 200
+    assert reponseDelete3.json() == None
 
